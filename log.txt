@@ -1,3 +1,4 @@
 
 1791617893723: ::1 made a GET request to /users
 1791617893750: ::1 made a GET request to /favicon.ico
+1791618602896: GET /api/users

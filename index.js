@@ -4,77 +4,59 @@ const fs = require("fs");
 const app = express();
 const PORT = 8000;
 
-// ==========================================
-// BUILT-IN MIDDLEWARE
-// ==========================================
-// This built-in guard takes form data sent by a user and turns it into a JavaScript object in req.body
+// Sample mock data for users
+const users = [
+  { id: 1, first_name: "Varun", last_name: "Patil", job_title: "Developer" },
+  { id: 2, first_name: "Govindraj", last_name: "pawar", job_title: "Designer" },
+];
+
+// Built-in middleware to handle form submissions
 app.use(express.urlencoded({ extended: false }));
 
-// ==========================================
-// CUSTOM MIDDLEWARE 1: THE LOGBOOK GUARD
-// ==========================================
-// Every time any visitor knocks on our door, this guard writes down the visit in "log.txt"
+// Logging middleware
 app.use((req, res, next) => {
-  const logMessage = `\n${Date.now()}: ${req.ip} made a ${req.method} request to ${req.path}`;
-
-  fs.appendFile("log.txt", logMessage, (err) => {
-    // Once writing is done, open the door to the next guard
-    next();
-  });
+  fs.appendFile(
+    "log.txt",
+    `\n${Date.now()}: ${req.method} ${req.path}`,
+    (err) => {
+      next();
+    }
+  );
 });
 
-// ==========================================
-// CUSTOM MIDDLEWARE 2: THE NAMETAG GUARD
-// ==========================================
-// This guard attaches extra information to the visitor's request (req)
-app.use((req, res, next) => {
-  console.log("Hello from Middleware 2!");
-
-  // Stick a custom property onto the request
-  req.myUserName = "Piyush Garg";
-
-  // Let the visitor move forward
-  next();
-});
-
-// ==========================================
-// CUSTOM MIDDLEWARE 3: THE CHECKPOINT GUARD
-// ==========================================
-// This guard can see what previous guards attached
-app.use((req, res, next) => {
-  console.log("Middleware 3 sees user:", req.myUserName);
-
-  // If you want to stop a bad visitor, you can uncomment the line below:
-  // return res.json({ message: "Guard stopped you here!" });
-
-  next();
-});
-
-// ==========================================
-// ROUTES (THE ROOMS INSIDE)
-// ==========================================
-// Route 1: Get all users
-app.get("/users", (req, res) => {
-  console.log("Inside /users route! User attached is:", req.myUserName);
-
-  return res.json({
-    status: "Success",
-    message: "Welcome to the playroom!",
-    currentUser: req.myUserName,
-  });
-});
-
-// Route 2: Specific user route
+// ========================================================
+// ROUTE: Getting users and demonstrating HTTP Headers
+// ========================================================
 app.get("/api/users", (req, res) => {
-  return res.json([
-    { id: 1, name: "Alice" },
-    { id: 2, name: "Bob" },
-  ]);
+  // Step 1: Read all headers incoming from the client (Postman/Browser)
+  console.log("--- Incoming Request Headers ---");
+  console.log(req.headers);
+
+  // Step 2: Set a Custom Response Header with the name "Varun Patil"
+  // Best practice: Always prefix custom headers with 'X-'
+  res.setHeader("X-MyName", "Varun Patil");
+
+  // Step 3: Send the JSON response back to the client
+  return res.json(users);
 });
 
-// ==========================================
-// START THE SERVER
-// ==========================================
+// ========================================================
+// ROUTE: Single user lookup
+// ========================================================
+app.get("/api/users/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const user = users.find((u) => u.id === id);
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // Set the custom author header here as well
+  res.setHeader("X-MyName", "Varun Patil");
+  return res.json(user);
+});
+
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+  console.log(`Server started on http://localhost:${PORT}`);
 });
