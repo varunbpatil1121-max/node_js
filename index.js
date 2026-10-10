@@ -1,22 +1,11 @@
 const express = require("express");
-const fs = require("fs");
+const mongoose = require("mongoose");
 
 const app = express();
 const PORT = 8000;
 
-// Sample database array with Varun Patil as the initial user
-const users = [
-  {
-    id: 1,
-    first_name: "Varun",
-    last_name: "Patil",
-    email: "varun.patil@example.com",
-    gender: "Male",
-    job_title: "Full Stack Developer",
-  },
-];
-
-// Middleware to parse URL-encoded form data from Postman
+// Body parsers
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Custom header middleware
@@ -25,37 +14,97 @@ app.use((req, res, next) => {
   next();
 });
 
-// ==========================================================
-// 1. GET ALL USERS -> 200 OK
-// ==========================================================
-app.get("/api/users", (req, res) => {
-  // 200 means: Everything was successful and data is returned
-  return res.status(200).json(users);
-});
+// Connect to MongoDB
+mongoose
+  .connect("mongodb://127.0.0.1:27017/user_database")
+  .then(() => console.log("MongoDB Connected Successfully!"))
+  .catch((err) => console.error("MongoDB Connection Error:", err));
 
-// ==========================================================
-// 2. GET USER BY ID -> 200 OK or 404 NOT FOUND
-// ==========================================================
-app.get("/api/users/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const user = users.find((u) => u.id === id);
+// Schema & Model definition
+const userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    jobTitle: {
+      type: String,
+    },
+    gender: {
+      type: String,
+    },
+  },
+  { timestamps: true }
+);
 
-  // 404 means: The client searched for an ID that does not exist
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+const User = mongoose.model("user", userSchema);
+
+// Seed default users if collection is empty
+async function seedDefaultUsers() {
+  try {
+    const count = await User.countDocuments();
+    if (count === 0) {
+      await User.create([
+        {
+          firstName: "Varun",
+          lastName: "Patil",
+          email: "varun.patil@example.com",
+          jobTitle: "Full Stack Developer",
+          gender: "Male",
+        },
+        {
+          firstName: "Govindraj",
+          lastName: "Pawar",
+          email: "govindraj.pawar@example.com",
+          jobTitle: "Software Engineer",
+          gender: "Male",
+        },
+      ]);
+      console.log("Default users inserted!");
+    }
+  } catch (error) {
+    console.error("Seeding Error:", error.message);
   }
+}
 
-  // 200 means: User was found
-  return res.status(200).json(user);
+seedDefaultUsers();
+
+// GET all users
+app.get("/api/users", async (req, res) => {
+  try {
+    const allUsers = await User.find({});
+    return res.status(200).json(allUsers);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch users" });
+  }
 });
 
-// ==========================================================
-// 3. CREATE NEW USER -> 201 CREATED or 400 BAD REQUEST
-// ==========================================================
-app.post("/api/users", (req, res) => {
+// GET single user by ID
+app.get("/api/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    return res.status(200).json(user);
+  } catch (error) {
+    return res.status(400).json({ error: "Invalid User ID format" });
+  }
+});
+
+// POST a new user
+app.post("/api/users", async (req, res) => {
   const body = req.body;
 
-  // Validation: Check if all mandatory fields were sent by the client
   if (
     !body ||
     !body.first_name ||
@@ -64,28 +113,25 @@ app.post("/api/users", (req, res) => {
     !body.gender ||
     !body.job_title
   ) {
-    // 400 means: Client made a mistake (missing form data)
     return res.status(400).json({ error: "All fields are required!" });
   }
 
-  const newUser = {
-    id: users.length + 1,
-    first_name: body.first_name,
-    last_name: body.last_name,
-    email: body.email,
-    gender: body.gender,
-    job_title: body.job_title,
-  };
+  try {
+    const result = await User.create({
+      firstName: body.first_name,
+      lastName: body.last_name,
+      email: body.email,
+      gender: body.gender,
+      jobTitle: body.job_title,
+    });
 
-  users.push(newUser);
-
-  // 201 means: A brand-new resource was created successfully
-  return res.status(201).json({ status: "Success", user: newUser });
+    return res.status(201).json({ status: "Success", id: result._id });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 
-// ==========================================================
-// START SERVER
-// ==========================================
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
