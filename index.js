@@ -1,50 +1,80 @@
 const express = require("express");
 const fs = require("fs");
-const users = require("./MOCK_DATA.json");
 
 const app = express();
 const PORT = 8000;
 
-// Middleware to parse incoming request bodies (form data)
+// ==========================================
+// BUILT-IN MIDDLEWARE
+// ==========================================
+// This built-in guard takes form data sent by a user and turns it into a JavaScript object in req.body
 app.use(express.urlencoded({ extended: false }));
 
-// Middleware 1: Log requests with timestamps to log.txt
+// ==========================================
+// CUSTOM MIDDLEWARE 1: THE LOGBOOK GUARD
+// ==========================================
+// Every time any visitor knocks on our door, this guard writes down the visit in "log.txt"
 app.use((req, res, next) => {
-  req.myUserName = "Varun Patil";
-  fs.appendFile(
-    "log.txt",
-    `\n${Date.now()}: ${req.method}: ${req.path}`,
-    (err, data) => {
-      next();
-    }
-  );
-});
+  const logMessage = `\n${Date.now()}: ${req.ip} made a ${req.method} request to ${req.path}`;
 
-// Middleware 2: Console log incoming user request
-app.use((req, res, next) => {
-  console.log("Request received for user:", req.myUserName);
-  next();
-});
-
-// Route 1: GET /api/users - Return all users
-app.get("/api/users", (req, res) => {
-  return res.json(users);
-});
-
-// Route 2: POST /api/users - Add new user and save to MOCK_DATA.json
-app.post("/api/users", (req, res) => {
-  const body = req.body;
-  if (!body || !body.first_name || !body.email) {
-    return res.status(400).json({ msg: "First name and email are required!" });
-  }
-
-  const newUser = { ...body, id: users.length + 1 };
-  users.push(newUser);
-
-  fs.writeFile("./MOCK_DATA.json", JSON.stringify(users), (err, data) => {
-    return res.json({ status: "success", id: newUser.id });
+  fs.appendFile("log.txt", logMessage, (err) => {
+    // Once writing is done, open the door to the next guard
+    next();
   });
 });
 
-// Start Server
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+// ==========================================
+// CUSTOM MIDDLEWARE 2: THE NAMETAG GUARD
+// ==========================================
+// This guard attaches extra information to the visitor's request (req)
+app.use((req, res, next) => {
+  console.log("Hello from Middleware 2!");
+
+  // Stick a custom property onto the request
+  req.myUserName = "Piyush Garg";
+
+  // Let the visitor move forward
+  next();
+});
+
+// ==========================================
+// CUSTOM MIDDLEWARE 3: THE CHECKPOINT GUARD
+// ==========================================
+// This guard can see what previous guards attached
+app.use((req, res, next) => {
+  console.log("Middleware 3 sees user:", req.myUserName);
+
+  // If you want to stop a bad visitor, you can uncomment the line below:
+  // return res.json({ message: "Guard stopped you here!" });
+
+  next();
+});
+
+// ==========================================
+// ROUTES (THE ROOMS INSIDE)
+// ==========================================
+// Route 1: Get all users
+app.get("/users", (req, res) => {
+  console.log("Inside /users route! User attached is:", req.myUserName);
+
+  return res.json({
+    status: "Success",
+    message: "Welcome to the playroom!",
+    currentUser: req.myUserName,
+  });
+});
+
+// Route 2: Specific user route
+app.get("/api/users", (req, res) => {
+  return res.json([
+    { id: 1, name: "Alice" },
+    { id: 2, name: "Bob" },
+  ]);
+});
+
+// ==========================================
+// START THE SERVER
+// ==========================================
+app.listen(PORT, () => {
+  console.log(`Server is running at http://localhost:${PORT}`);
+});
