@@ -4,59 +4,88 @@ const fs = require("fs");
 const app = express();
 const PORT = 8000;
 
-// Sample mock data for users
+// Sample database array with Varun Patil as the initial user
 const users = [
-  { id: 1, first_name: "Varun", last_name: "Patil", job_title: "Developer" },
-  { id: 2, first_name: "Govindraj", last_name: "pawar", job_title: "Designer" },
+  {
+    id: 1,
+    first_name: "Varun",
+    last_name: "Patil",
+    email: "varun.patil@example.com",
+    gender: "Male",
+    job_title: "Full Stack Developer",
+  },
 ];
 
-// Built-in middleware to handle form submissions
+// Middleware to parse URL-encoded form data from Postman
 app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
+// Custom header middleware
 app.use((req, res, next) => {
-  fs.appendFile(
-    "log.txt",
-    `\n${Date.now()}: ${req.method} ${req.path}`,
-    (err) => {
-      next();
-    }
-  );
+  res.setHeader("X-Author", "Varun Patil");
+  next();
 });
 
-// ========================================================
-// ROUTE: Getting users and demonstrating HTTP Headers
-// ========================================================
+// ==========================================================
+// 1. GET ALL USERS -> 200 OK
+// ==========================================================
 app.get("/api/users", (req, res) => {
-  // Step 1: Read all headers incoming from the client (Postman/Browser)
-  console.log("--- Incoming Request Headers ---");
-  console.log(req.headers);
-
-  // Step 2: Set a Custom Response Header with the name "Varun Patil"
-  // Best practice: Always prefix custom headers with 'X-'
-  res.setHeader("X-MyName", "Varun Patil");
-
-  // Step 3: Send the JSON response back to the client
-  return res.json(users);
+  // 200 means: Everything was successful and data is returned
+  return res.status(200).json(users);
 });
 
-// ========================================================
-// ROUTE: Single user lookup
-// ========================================================
+// ==========================================================
+// 2. GET USER BY ID -> 200 OK or 404 NOT FOUND
+// ==========================================================
 app.get("/api/users/:id", (req, res) => {
   const id = Number(req.params.id);
   const user = users.find((u) => u.id === id);
 
+  // 404 means: The client searched for an ID that does not exist
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
 
-  // Set the custom author header here as well
-  res.setHeader("X-MyName", "Varun Patil");
-  return res.json(user);
+  // 200 means: User was found
+  return res.status(200).json(user);
 });
 
-// Start the server
+// ==========================================================
+// 3. CREATE NEW USER -> 201 CREATED or 400 BAD REQUEST
+// ==========================================================
+app.post("/api/users", (req, res) => {
+  const body = req.body;
+
+  // Validation: Check if all mandatory fields were sent by the client
+  if (
+    !body ||
+    !body.first_name ||
+    !body.last_name ||
+    !body.email ||
+    !body.gender ||
+    !body.job_title
+  ) {
+    // 400 means: Client made a mistake (missing form data)
+    return res.status(400).json({ error: "All fields are required!" });
+  }
+
+  const newUser = {
+    id: users.length + 1,
+    first_name: body.first_name,
+    last_name: body.last_name,
+    email: body.email,
+    gender: body.gender,
+    job_title: body.job_title,
+  };
+
+  users.push(newUser);
+
+  // 201 means: A brand-new resource was created successfully
+  return res.status(201).json({ status: "Success", user: newUser });
+});
+
+// ==========================================================
+// START SERVER
+// ==========================================
 app.listen(PORT, () => {
-  console.log(`Server started on http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
